@@ -70,6 +70,24 @@ export function createApp(dbFile) {
     res.json(task);
   });
 
+  app.patch("/tasks/:id", (req, res) => {
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: "invalid id" });
+    const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
+    if (!text) return res.status(400).json({ error: "text is required" });
+    if (text.length > MAX_TEXT_LENGTH) {
+      return res
+        .status(400)
+        .json({ error: `text must be at most ${MAX_TEXT_LENGTH} characters` });
+    }
+    const info = db
+      .prepare("UPDATE tasks SET text = ? WHERE id = ?")
+      .run(text, id);
+    if (info.changes === 0) return res.status(404).json({ error: "not found" });
+    const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
+    res.json(task);
+  });
+
   app.delete("/tasks/:id", (req, res) => {
     const id = parseId(req.params.id);
     if (id === null) return res.status(400).json({ error: "invalid id" });

@@ -38,6 +38,7 @@ docker compose up --build
 | `GET` | `/tasks` | list tasks ordered by id |
 | `POST` | `/tasks` `{ "text" }` | 201 with created task; 400 if empty or > 500 chars |
 | `PUT` | `/tasks/:id` | toggles `done`; 400 invalid id, 404 unknown id |
+| `PATCH` | `/tasks/:id` `{ "text" }` | edits text; 400 if empty or > 500 chars, 400 invalid id, 404 unknown id |
 | `DELETE` | `/tasks/:id` | 204 on delete; 400 invalid id, 404 unknown id |
 
 ## Scripts (`backend/`)

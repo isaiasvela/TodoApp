@@ -14,12 +14,12 @@ Keep `MEMORY.md` up to date when making decisions or changes that future session
 ## Run
 - `cd backend && npm install && npm start` → http://localhost:3000 (`PORT`/`DB_PATH` env vars override port and SQLite path)
 - `docker compose up --build` (builds `./backend`, mounts `./db.sqlite:/app/db.sqlite`)
-- Tests: `npm test` (`backend/`, vitest + supertest, 9 API tests). Lint: `npm run lint`. Format check: `npm run format`.
+- Tests: `npm test` (`backend/`, vitest + supertest, 13 API tests). Lint: `npm run lint`. Format check: `npm run format`.
 
 ## Conventions
 - ESM (`"type": "module"`); use `import`, not `require`.
 - SQLite via `better-sqlite3` (WAL mode); schema auto-created (`tasks(id, text, done)`). Use `createApp(":memory:")` from `backend/server.js` for tests — importing it has no side effects.
-- API: `GET /tasks`, `POST /tasks {text}` (400 if empty/>500 chars, 201 with task), `PUT /tasks/:id` (toggles `done`; 400/404), `DELETE /tasks/:id` (204; 400/404). `GET /health` for healthchecks.
+- API: `GET /tasks`, `POST /tasks {text}` (400 if empty/>500 chars, 201 with task), `PUT /tasks/:id` (toggles `done`; 400/404), `PATCH /tasks/:id {text}` (edits text; 400/404), `DELETE /tasks/:id` (204; 400/404). `GET /health` for healthchecks.
 - Prettier style enforced (`npm run format`); eslint flat config in `backend/eslint.config.js`.
 
 ## CI

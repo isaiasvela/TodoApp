@@ -73,3 +73,50 @@ describe("tasks API", () => {
     expect((await request(app).delete("/tasks/abc")).status).toBe(400);
   });
 });
+
+describe("PATCH /tasks/:id", () => {
+  it("edits text and trims whitespace", async () => {
+    const created = await request(app).post("/tasks").send({ text: "leche" });
+    const res = await request(app)
+      .patch(`/tasks/${created.body.id}`)
+      .send({ text: "  leche desnatada  " });
+    expect(res.status).toBe(200);
+    expect(res.body.text).toBe("leche desnatada");
+    expect(res.body.id).toBe(created.body.id);
+  });
+
+  it("does not change the done flag", async () => {
+    const created = await request(app).post("/tasks").send({ text: "pan" });
+    await request(app).put(`/tasks/${created.body.id}`);
+    const res = await request(app)
+      .patch(`/tasks/${created.body.id}`)
+      .send({ text: "pan integral" });
+    expect(res.status).toBe(200);
+    expect(res.body.done).toBeTruthy();
+  });
+
+  it("rejects empty, non-string or too-long text with 400", async () => {
+    const created = await request(app).post("/tasks").send({ text: "algo" });
+    for (const body of [
+      {},
+      { text: "" },
+      { text: "   " },
+      { text: 42 },
+      { text: "x".repeat(MAX_TEXT_LENGTH + 1) },
+    ]) {
+      const res = await request(app)
+        .patch(`/tasks/${created.body.id}`)
+        .send(body);
+      expect(res.status).toBe(400);
+    }
+  });
+
+  it("returns 404 for unknown id and 400 for invalid id", async () => {
+    expect(
+      (await request(app).patch("/tasks/9999").send({ text: "x" })).status,
+    ).toBe(404);
+    expect(
+      (await request(app).patch("/tasks/abc").send({ text: "x" })).status,
+    ).toBe(400);
+  });
+});

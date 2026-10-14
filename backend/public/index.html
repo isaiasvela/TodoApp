@@ -2,6 +2,7 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Tareas Familia</title>
     <style>
       body {
@@ -18,13 +19,20 @@
         color: #007bff;
       }
 
-      input {
-        width: 75%;
+      .add-row {
+        text-align: center;
+      }
+
+      input[type="text"] {
         padding: 10px;
         font-size: 16px;
-        margin-right: 5px;
         border-radius: 5px;
         border: 1px solid #ccc;
+      }
+
+      #task {
+        width: 75%;
+        margin-right: 5px;
       }
 
       button {
@@ -42,10 +50,47 @@
         background: #0056b3;
       }
 
+      button.secondary {
+        background: #6c757d;
+      }
+
+      button.secondary:hover {
+        background: #545b62;
+      }
+
+      button.active {
+        background: #0056b3;
+      }
+
+      .toolbar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 20px;
+        flex-wrap: wrap;
+      }
+
+      .toolbar .filters {
+        display: flex;
+        gap: 8px;
+      }
+
+      #search {
+        flex: 1;
+        min-width: 120px;
+      }
+
+      #counter {
+        width: 100%;
+        color: #666;
+        font-size: 14px;
+        margin: 8px 0 0;
+      }
+
       ul {
         list-style: none;
         padding: 0;
-        margin-top: 20px;
+        margin-top: 12px;
       }
 
       li {
@@ -56,24 +101,67 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 10px;
         cursor: pointer;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         transition: background 0.2s;
       }
 
-      li.done {
+      li.done .label {
         text-decoration: line-through;
         color: gray;
+      }
+
+      li.done {
         background: #e9ecef;
       }
 
-      li button {
-        background: #dc3545;
-        margin-left: 10px;
+      li .label {
+        flex: 1;
+        overflow-wrap: anywhere;
       }
 
-      li button:hover {
+      li .actions {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+
+      li .actions .edit {
+        background: #ffc107;
+        color: #333;
+      }
+
+      li .actions .edit:hover {
+        background: #e0a800;
+      }
+
+      li .actions .del {
+        background: #dc3545;
+      }
+
+      li .actions .del:hover {
         background: #a71d2a;
+      }
+
+      li.editing {
+        cursor: default;
+      }
+
+      li.editing input {
+        flex: 1;
+      }
+
+      .actions-row {
+        text-align: center;
+        margin-top: 10px;
+      }
+
+      #empty,
+      #loading {
+        text-align: center;
+        color: #666;
+        margin-top: 20px;
       }
 
       #error {
@@ -85,18 +173,84 @@
         margin-top: 15px;
         text-align: center;
       }
+
+      #toast {
+        display: none;
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #333;
+        color: white;
+        padding: 10px 15px;
+        border-radius: 5px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        align-items: center;
+        gap: 10px;
+      }
+
+      #toast button {
+        background: #ffc107;
+        color: #333;
+        padding: 6px 10px;
+        font-size: 14px;
+      }
     </style>
   </head>
   <body>
     <h1>📝 Tareas Familia</h1>
-    <div style="text-align: center">
-      <input id="task" placeholder="Nueva tarea..." maxlength="500" />
+    <div class="add-row">
+      <input
+        id="task"
+        type="text"
+        placeholder="Nueva tarea..."
+        maxlength="500"
+      />
       <button onclick="add()">Añadir</button>
     </div>
+    <div class="toolbar">
+      <div class="filters">
+        <button id="f-all" class="secondary active" onclick="setFilter('all')">
+          Todas
+        </button>
+        <button id="f-active" class="secondary" onclick="setFilter('active')">
+          Pendientes
+        </button>
+        <button id="f-done" class="secondary" onclick="setFilter('done')">
+          Hechas
+        </button>
+      </div>
+      <input
+        id="search"
+        type="text"
+        placeholder="Buscar..."
+        oninput="setQuery(this.value)"
+      />
+      <p id="counter"></p>
+    </div>
     <p id="error" role="alert"></p>
+    <p id="loading">Cargando tareas…</p>
+    <p id="empty" style="display: none"></p>
     <ul id="list"></ul>
+    <div class="actions-row">
+      <button id="clear-done" class="secondary" onclick="clearDone()">
+        Borrar completadas
+      </button>
+    </div>
+    <div id="toast">
+      <span id="toast-msg"></span
+      ><button onclick="undoDelete()">Deshacer</button>
+    </div>
 
     <script>
+      let allTasks = [];
+      let filter = "all";
+      let query = "";
+      let editingId = null;
+      let editDraft = "";
+      let lastDeleted = [];
+      let undoTimer = null;
+
       function showError(msg) {
         const el = document.getElementById("error");
         el.textContent = msg;
@@ -109,34 +263,145 @@
         el.style.display = "none";
       }
 
+      function setFilter(f) {
+        filter = f;
+        for (const name of ["all", "active", "done"]) {
+          document
+            .getElementById("f-" + name)
+            .classList.toggle("active", name === f);
+        }
+        render();
+      }
+
+      function setQuery(q) {
+        query = q.trim().toLowerCase();
+        render();
+      }
+
+      function visibleTasks() {
+        return allTasks.filter((t) => {
+          if (filter === "active" && t.done) return false;
+          if (filter === "done" && !t.done) return false;
+          if (query && !t.text.toLowerCase().includes(query)) return false;
+          return true;
+        });
+      }
+
       async function load() {
         try {
           clearError();
+          document.getElementById("loading").style.display = "block";
           const res = await fetch("/tasks");
           if (!res.ok)
             throw new Error(
               "No se pudieron cargar las tareas (HTTP " + res.status + ")",
             );
-          const tasks = await res.json();
-          const list = document.getElementById("list");
-          list.innerHTML = "";
-          tasks.forEach((t) => {
-            const li = document.createElement("li");
-            li.textContent = t.text;
-            if (t.done) li.classList.add("done");
-            li.onclick = () => toggle(t.id);
-            const btn = document.createElement("button");
-            btn.textContent = "❌";
-            btn.onclick = (e) => {
-              e.stopPropagation();
-              del(t.id);
-            };
-            li.appendChild(btn);
-            list.appendChild(li);
-          });
+          allTasks = await res.json();
+          render();
         } catch (err) {
           showError(err.message);
+        } finally {
+          document.getElementById("loading").style.display = "none";
         }
+      }
+
+      function render() {
+        const list = document.getElementById("list");
+        list.innerHTML = "";
+        const tasks = visibleTasks();
+        const pending = allTasks.filter((t) => !t.done).length;
+        document.getElementById("counter").textContent =
+          allTasks.length === 0
+            ? ""
+            : pending + " pendiente(s) de " + allTasks.length;
+
+        const empty = document.getElementById("empty");
+        if (allTasks.length === 0) {
+          empty.textContent = "No hay tareas. ¡Añade la primera! 🎉";
+          empty.style.display = "block";
+        } else if (tasks.length === 0) {
+          empty.textContent = "Sin resultados para este filtro o búsqueda.";
+          empty.style.display = "block";
+        } else {
+          empty.style.display = "none";
+        }
+
+        document.getElementById("clear-done").style.display = allTasks.some(
+          (t) => t.done,
+        )
+          ? ""
+          : "none";
+
+        tasks.forEach((t) => {
+          const li = document.createElement("li");
+          if (t.done) li.classList.add("done");
+
+          if (editingId === t.id) {
+            li.classList.add("editing");
+            const input = document.createElement("input");
+            input.type = "text";
+            input.value = editDraft;
+            input.maxLength = 500;
+            input.onclick = (e) => e.stopPropagation();
+            input.onkeydown = (e) => {
+              if (e.key === "Enter") saveEdit(t.id);
+              if (e.key === "Escape") cancelEdit();
+            };
+            const actions = document.createElement("div");
+            actions.className = "actions";
+            const save = document.createElement("button");
+            save.textContent = "💾";
+            save.title = "Guardar";
+            save.onclick = (e) => {
+              e.stopPropagation();
+              saveEdit(t.id);
+            };
+            const cancel = document.createElement("button");
+            cancel.textContent = "↩️";
+            cancel.title = "Cancelar";
+            cancel.className = "secondary";
+            cancel.onclick = (e) => {
+              e.stopPropagation();
+              cancelEdit();
+            };
+            actions.appendChild(save);
+            actions.appendChild(cancel);
+            li.appendChild(input);
+            li.appendChild(actions);
+            list.appendChild(li);
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+            return;
+          }
+
+          const label = document.createElement("span");
+          label.className = "label";
+          label.textContent = t.text;
+          li.onclick = () => toggle(t.id);
+          const actions = document.createElement("div");
+          actions.className = "actions";
+          const editBtn = document.createElement("button");
+          editBtn.textContent = "✏️";
+          editBtn.title = "Editar";
+          editBtn.className = "edit";
+          editBtn.onclick = (e) => {
+            e.stopPropagation();
+            startEdit(t);
+          };
+          const delBtn = document.createElement("button");
+          delBtn.textContent = "❌";
+          delBtn.title = "Borrar";
+          delBtn.className = "del";
+          delBtn.onclick = (e) => {
+            e.stopPropagation();
+            del(t.id);
+          };
+          actions.appendChild(editBtn);
+          actions.appendChild(delBtn);
+          li.appendChild(label);
+          li.appendChild(actions);
+          list.appendChild(li);
+        });
       }
 
       async function add() {
@@ -164,6 +429,42 @@
         }
       }
 
+      function startEdit(t) {
+        editingId = t.id;
+        editDraft = t.text;
+        render();
+      }
+
+      function cancelEdit() {
+        editingId = null;
+        render();
+      }
+
+      async function saveEdit(id) {
+        try {
+          const input = document.querySelector("li.editing input");
+          const text = (input ? input.value : editDraft).trim();
+          if (!text) return;
+          clearError();
+          const res = await fetch("/tasks/" + id, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(
+              data.error ||
+                "No se pudo editar la tarea (HTTP " + res.status + ")",
+            );
+          }
+          editingId = null;
+          load();
+        } catch (err) {
+          showError(err.message);
+        }
+      }
+
       async function toggle(id) {
         try {
           clearError();
@@ -181,16 +482,82 @@
       async function del(id) {
         try {
           clearError();
+          const task = allTasks.find((t) => t.id === id);
           const res = await fetch("/tasks/" + id, { method: "DELETE" });
           if (!res.ok)
             throw new Error(
               "No se pudo borrar la tarea (HTTP " + res.status + ")",
             );
+          if (task) offerUndo([task]);
           load();
         } catch (err) {
           showError(err.message);
         }
       }
+
+      async function clearDone() {
+        try {
+          clearError();
+          const done = allTasks.filter((t) => t.done);
+          if (done.length === 0) return;
+          for (const t of done) {
+            const res = await fetch("/tasks/" + t.id, { method: "DELETE" });
+            if (!res.ok)
+              throw new Error(
+                "No se pudieron borrar las completadas (HTTP " +
+                  res.status +
+                  ")",
+              );
+          }
+          offerUndo(done);
+          load();
+        } catch (err) {
+          showError(err.message);
+        }
+      }
+
+      function offerUndo(tasks) {
+        lastDeleted = tasks;
+        const toast = document.getElementById("toast");
+        document.getElementById("toast-msg").textContent =
+          tasks.length === 1
+            ? "Tarea eliminada."
+            : tasks.length + " tareas eliminadas.";
+        toast.style.display = "flex";
+        clearTimeout(undoTimer);
+        undoTimer = setTimeout(hideToast, 5000);
+      }
+
+      function hideToast() {
+        document.getElementById("toast").style.display = "none";
+        lastDeleted = [];
+      }
+
+      async function undoDelete() {
+        const toRestore = lastDeleted;
+        hideToast();
+        try {
+          clearError();
+          for (const t of toRestore) {
+            const res = await fetch("/tasks", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: t.text }),
+            });
+            if (!res.ok)
+              throw new Error("No se pudo deshacer (HTTP " + res.status + ")");
+            const created = await res.json();
+            if (t.done) await fetch("/tasks/" + created.id, { method: "PUT" });
+          }
+          load();
+        } catch (err) {
+          showError(err.message);
+        }
+      }
+
+      document.getElementById("task").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") add();
+      });
 
       load();
     </script>
