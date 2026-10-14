@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Tareas Familia</title>
+    <style>
+      body {
+        font-family: "Segoe UI", sans-serif;
+        max-width: 600px;
+        margin: 40px auto;
+        background: #f9f9f9;
+        color: #333;
+        padding: 0 20px;
+      }
+
+      h1 {
+        text-align: center;
+        color: #007bff;
+      }
+
+      input {
+        width: 75%;
+        padding: 10px;
+        font-size: 16px;
+        margin-right: 5px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+      }
+
+      button {
+        padding: 10px 15px;
+        font-size: 16px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        background: #007bff;
+        color: white;
+        transition: background 0.2s;
+      }
+
+      button:hover {
+        background: #0056b3;
+      }
+
+      ul {
+        list-style: none;
+        padding: 0;
+        margin-top: 20px;
+      }
+
+      li {
+        background: white;
+        padding: 10px 15px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: background 0.2s;
+      }
+
+      li.done {
+        text-decoration: line-through;
+        color: gray;
+        background: #e9ecef;
+      }
+
+      li button {
+        background: #dc3545;
+        margin-left: 10px;
+      }
+
+      li button:hover {
+        background: #a71d2a;
+      }
+
+      #error {
+        display: none;
+        background: #f8d7da;
+        color: #721c24;
+        padding: 10px 15px;
+        border-radius: 5px;
+        margin-top: 15px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>📝 Tareas Familia</h1>
+    <div style="text-align: center">
+      <input id="task" placeholder="Nueva tarea..." maxlength="500" />
+      <button onclick="add()">Añadir</button>
+    </div>
+    <p id="error" role="alert"></p>
+    <ul id="list"></ul>
+
+    <script>
+      function showError(msg) {
+        const el = document.getElementById("error");
+        el.textContent = msg;
+        el.style.display = "block";
+      }
+
+      function clearError() {
+        const el = document.getElementById("error");
+        el.textContent = "";
+        el.style.display = "none";
+      }
+
+      async function load() {
+        try {
+          clearError();
+          const res = await fetch("/tasks");
+          if (!res.ok)
+            throw new Error(
+              "No se pudieron cargar las tareas (HTTP " + res.status + ")",
+            );
+          const tasks = await res.json();
+          const list = document.getElementById("list");
+          list.innerHTML = "";
+          tasks.forEach((t) => {
+            const li = document.createElement("li");
+            li.textContent = t.text;
+            if (t.done) li.classList.add("done");
+            li.onclick = () => toggle(t.id);
+            const btn = document.createElement("button");
+            btn.textContent = "❌";
+            btn.onclick = (e) => {
+              e.stopPropagation();
+              del(t.id);
+            };
+            li.appendChild(btn);
+            list.appendChild(li);
+          });
+        } catch (err) {
+          showError(err.message);
+        }
+      }
+
+      async function add() {
+        try {
+          const taskInput = document.getElementById("task");
+          const text = taskInput.value.trim();
+          if (!text) return;
+          clearError();
+          const res = await fetch("/tasks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(
+              data.error ||
+                "No se pudo añadir la tarea (HTTP " + res.status + ")",
+            );
+          }
+          taskInput.value = "";
+          load();
+        } catch (err) {
+          showError(err.message);
+        }
+      }
+
+      async function toggle(id) {
+        try {
+          clearError();
+          const res = await fetch("/tasks/" + id, { method: "PUT" });
+          if (!res.ok)
+            throw new Error(
+              "No se pudo actualizar la tarea (HTTP " + res.status + ")",
+            );
+          load();
+        } catch (err) {
+          showError(err.message);
+        }
+      }
+
+      async function del(id) {
+        try {
+          clearError();
+          const res = await fetch("/tasks/" + id, { method: "DELETE" });
+          if (!res.ok)
+            throw new Error(
+              "No se pudo borrar la tarea (HTTP " + res.status + ")",
+            );
+          load();
+        } catch (err) {
+          showError(err.message);
+        }
+      }
+
+      load();
+    </script>
+  </body>
+</html>

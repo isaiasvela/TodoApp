@@ -1,11 +1,12 @@
-version: "3.8"
-
 services:
   todo:
+    build: ./backend
     image: ghcr.io/godack1905/todo-family:latest
     container_name: todo-app
     ports:
       - "3000:3000"
+    environment:
+      - PORT=3000
     volumes:
       - ./db.sqlite:/app/db.sqlite
     restart: unless-stopped

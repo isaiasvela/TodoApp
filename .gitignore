@@ -1,0 +1,6 @@
+node_modules/
+db.sqlite
+*.sqlite
+*.db
+coverage/
+MEMORY.md

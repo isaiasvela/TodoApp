@@ -1,12 +1,40 @@
-name: Build & Push Docker
+name: Test & Push Docker
 
 on:
   push:
     branches:
       - main
+  pull_request:
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Lint
+        working-directory: backend
+        run: npm run lint
+
+      - name: Test
+        working-directory: backend
+        run: npm test
+
   docker:
+    needs: test
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
 
     permissions:

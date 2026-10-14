@@ -1,180 +1,104 @@
 import express from "express";
 import Database from "better-sqlite3";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const app = express();
-const db = new Database("db.sqlite");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-app.use(express.json());
+export const MAX_TEXT_LENGTH = 500;
 
-// Crear tabla si no existe
-db.prepare(`
-  CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    text TEXT NOT NULL,
-    done INTEGER DEFAULT 0
-  )
-`).run();
+function parseId(value) {
+  if (typeof value !== "string" || !/^\d+$/.test(value)) return null;
+  const id = Number(value);
+  return Number.isSafeInteger(id) ? id : null;
+}
 
-// Frontend simple y moderno
-app.get("/", (req, res) => {
-  res.send(`<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8" />
-<title>Tareas Familia</title>
-<style>
-  body {
-    font-family: 'Segoe UI', sans-serif;
-    max-width: 600px;
-    margin: 40px auto;
-    background: #f9f9f9;
-    color: #333;
-    padding: 0 20px;
+export function createApp(dbFile) {
+  const app = express();
+  app.use(express.json({ limit: "100kb" }));
+
+  if (dbFile !== ":memory:") {
+    fs.mkdirSync(path.dirname(path.resolve(dbFile)), { recursive: true });
   }
+  const db = new Database(dbFile);
+  db.pragma("journal_mode = WAL");
+  db.prepare(
+    `
+    CREATE TABLE IF NOT EXISTS tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      text TEXT NOT NULL,
+      done INTEGER DEFAULT 0
+    )
+    `,
+  ).run();
 
-  h1 {
-    text-align: center;
-    color: #007bff;
-  }
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok" });
+  });
 
-  input {
-    width: 75%;
-    padding: 10px;
-    font-size: 16px;
-    margin-right: 5px;
-    border-radius: 5px;
-    border: 1px solid #ccc;
-  }
+  app.use(express.static(path.join(__dirname, "public")));
 
-  button {
-    padding: 10px 15px;
-    font-size: 16px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    background: #007bff;
-    color: white;
-    transition: background 0.2s;
-  }
+  app.get("/tasks", (_req, res) => {
+    const tasks = db.prepare("SELECT * FROM tasks ORDER BY id").all();
+    res.json(tasks);
+  });
 
-  button:hover {
-    background: #0056b3;
-  }
+  app.post("/tasks", (req, res) => {
+    const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
+    if (!text) return res.status(400).json({ error: "text is required" });
+    if (text.length > MAX_TEXT_LENGTH) {
+      return res
+        .status(400)
+        .json({ error: `text must be at most ${MAX_TEXT_LENGTH} characters` });
+    }
+    const info = db.prepare("INSERT INTO tasks (text) VALUES (?)").run(text);
+    const task = db
+      .prepare("SELECT * FROM tasks WHERE id = ?")
+      .get(info.lastInsertRowid);
+    res.status(201).json(task);
+  });
 
-  ul {
-    list-style: none;
-    padding: 0;
-    margin-top: 20px;
-  }
+  app.put("/tasks/:id", (req, res) => {
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: "invalid id" });
+    const info = db
+      .prepare("UPDATE tasks SET done = NOT done WHERE id = ?")
+      .run(id);
+    if (info.changes === 0) return res.status(404).json({ error: "not found" });
+    const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
+    res.json(task);
+  });
 
-  li {
-    background: white;
-    padding: 10px 15px;
-    margin-bottom: 10px;
-    border-radius: 5px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    transition: background 0.2s;
-  }
+  app.delete("/tasks/:id", (req, res) => {
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: "invalid id" });
+    const info = db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+    if (info.changes === 0) return res.status(404).json({ error: "not found" });
+    res.sendStatus(204);
+  });
 
-  li.done {
-    text-decoration: line-through;
-    color: gray;
-    background: #e9ecef;
-  }
+  app.use((err, _req, res, _next) => {
+    if (err?.type === "entity.parse.failed") {
+      return res.status(400).json({ error: "invalid JSON" });
+    }
+    console.error(err);
+    res.status(500).json({ error: "internal error" });
+  });
 
-  li button {
-    background: #dc3545;
-    margin-left: 10px;
-  }
+  return { app, db };
+}
 
-  li button:hover {
-    background: #a71d2a;
-  }
-</style>
-</head>
-<body>
-<h1>📝 Tareas Familia</h1>
-<div style="text-align:center">
-  <input id="task" placeholder="Nueva tarea..." />
-  <button onclick="add()">Añadir</button>
-</div>
-<ul id="list"></ul>
+const PORT = Number(process.env.PORT) || 3000;
+const DB_PATH = process.env.DB_PATH || "db.sqlite";
 
-<script>
-async function load() {
-  const res = await fetch('/tasks');
-  const tasks = await res.json();
-  const list = document.getElementById('list');
-  list.innerHTML = '';
-  tasks.forEach(t => {
-    const li = document.createElement('li');
-    li.textContent = t.text;
-    if(t.done) li.classList.add('done');
-    li.onclick = () => toggle(t.id);
-    const btn = document.createElement('button');
-    btn.textContent = '❌';
-    btn.onclick = e => { e.stopPropagation(); del(t.id); };
-    li.appendChild(btn);
-    list.appendChild(li);
+const isMainModule =
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+
+if (isMainModule) {
+  const { app } = createApp(DB_PATH);
+  app.listen(PORT, () => {
+    console.log(`🟢 App corriendo en http://localhost:${PORT}`);
   });
 }
-
-async function add() {
-  const taskInput = document.getElementById('task');
-  const text = taskInput.value.trim();
-  if(!text) return;
-  await fetch('/tasks', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ text })
-  });
-  taskInput.value = '';
-  load();
-}
-
-async function toggle(id) {
-  await fetch('/tasks/' + id, { method: 'PUT' });
-  load();
-}
-
-async function del(id) {
-  await fetch('/tasks/' + id, { method: 'DELETE' });
-  load();
-}
-
-load();
-</script>
-</body>
-</html>
-`);
-});
-
-// API
-app.get("/tasks", (req, res) => {
-  const tasks = db.prepare("SELECT * FROM tasks").all();
-  res.json(tasks);
-});
-
-app.post("/tasks", (req, res) => {
-  if(!req.body.text || !req.body.text.trim()) return res.sendStatus(400);
-  db.prepare("INSERT INTO tasks (text) VALUES (?)").run(req.body.text.trim());
-  res.sendStatus(201);
-});
-
-app.put("/tasks/:id", (req, res) => {
-  db.prepare("UPDATE tasks SET done = NOT done WHERE id = ?").run(req.params.id);
-  res.sendStatus(200);
-});
-
-app.delete("/tasks/:id", (req, res) => {
-  db.prepare("DELETE FROM tasks WHERE id = ?").run(req.params.id);
-  res.sendStatus(200);
-});
-
-app.listen(3000, () => {
-  console.log("🟢 App corriendo en http://localhost:3000");
-});
