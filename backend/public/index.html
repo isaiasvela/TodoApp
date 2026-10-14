@@ -7,7 +7,7 @@
     <style>
       body {
         font-family: "Segoe UI", sans-serif;
-        max-width: 600px;
+        max-width: 640px;
         margin: 40px auto;
         background: #f9f9f9;
         color: #333;
@@ -19,20 +19,68 @@
         color: #007bff;
       }
 
-      .add-row {
-        text-align: center;
+      .profile-bar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 15px;
+        font-size: 14px;
+        color: #666;
       }
 
-      input[type="text"] {
+      .profile-bar input {
+        padding: 8px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        font-family: inherit;
+        width: 160px;
+      }
+
+      .profile-bar button {
+        padding: 8px 10px;
+        font-size: 14px;
+      }
+
+      #sync {
+        font-size: 12px;
+      }
+
+      .add-form {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+
+      .add-form .row {
+        display: flex;
+        gap: 8px;
+      }
+
+      input[type="text"],
+      input[type="date"],
+      select {
         padding: 10px;
         font-size: 16px;
         border-radius: 5px;
         border: 1px solid #ccc;
+        font-family: inherit;
       }
 
       #task {
-        width: 75%;
-        margin-right: 5px;
+        flex: 1;
+      }
+
+      .add-form .meta input,
+      .add-form .meta select {
+        flex: 1;
+        min-width: 0;
+        font-size: 14px;
       }
 
       button {
@@ -44,6 +92,7 @@
         background: #007bff;
         color: white;
         transition: background 0.2s;
+        white-space: nowrap;
       }
 
       button:hover {
@@ -75,6 +124,16 @@
         gap: 8px;
       }
 
+      .toolbar button {
+        font-size: 14px;
+        padding: 8px 12px;
+      }
+
+      #search,
+      #assignee-filter {
+        font-size: 14px;
+      }
+
       #search {
         flex: 1;
         min-width: 120px;
@@ -100,11 +159,26 @@
         border-radius: 5px;
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
         gap: 10px;
         cursor: pointer;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         transition: background 0.2s;
+        border-left: 5px solid #6c757d;
+      }
+
+      li.pri-high {
+        border-left-color: #dc3545;
+      }
+      li.pri-normal {
+        border-left-color: #ffc107;
+      }
+      li.pri-low {
+        border-left-color: #28a745;
+      }
+
+      li.done {
+        background: #e9ecef;
       }
 
       li.done .label {
@@ -112,19 +186,57 @@
         color: gray;
       }
 
-      li.done {
-        background: #e9ecef;
+      li .content {
+        flex: 1;
+        min-width: 0;
       }
 
       li .label {
-        flex: 1;
         overflow-wrap: anywhere;
+      }
+
+      li .meta {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+      }
+
+      .chip {
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: #e9ecef;
+        color: #495057;
+      }
+
+      .chip.me {
+        background: #cce5ff;
+        color: #004085;
+        font-weight: bold;
+      }
+
+      .chip.due-overdue {
+        background: #f8d7da;
+        color: #721c24;
+        font-weight: bold;
+      }
+
+      .chip.due-today {
+        background: #fff3cd;
+        color: #856404;
+        font-weight: bold;
       }
 
       li .actions {
         display: flex;
         gap: 6px;
         flex-shrink: 0;
+      }
+
+      li .actions button {
+        padding: 8px 10px;
+        font-size: 14px;
       }
 
       li .actions .edit {
@@ -146,10 +258,25 @@
 
       li.editing {
         cursor: default;
+        flex-direction: column;
       }
 
-      li.editing input {
+      li.editing input,
+      li.editing select {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 14px;
+      }
+
+      li.editing .edit-grid {
+        display: flex;
+        gap: 6px;
+        width: 100%;
+      }
+
+      li.editing .edit-grid > * {
         flex: 1;
+        min-width: 0;
       }
 
       .actions-row {
@@ -187,6 +314,7 @@
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         align-items: center;
         gap: 10px;
+        max-width: 90vw;
       }
 
       #toast button {
@@ -199,14 +327,50 @@
   </head>
   <body>
     <h1>📝 Tareas Familia</h1>
-    <div class="add-row">
+    <div class="profile-bar">
+      <span>👤 Soy:</span>
       <input
-        id="task"
+        id="profile"
         type="text"
-        placeholder="Nueva tarea..."
-        maxlength="500"
+        list="profile-names"
+        placeholder="Tu nombre..."
+        maxlength="100"
       />
-      <button onclick="add()">Añadir</button>
+      <datalist id="profile-names"></datalist>
+      <button
+        id="profile-clear"
+        class="secondary"
+        title="Olvidar perfil"
+        onclick="clearProfile()"
+      >
+        ✕
+      </button>
+      <span id="sync" title="Sincronización en vivo">⚪</span>
+    </div>
+    <div class="add-form">
+      <div class="row">
+        <input
+          id="task"
+          type="text"
+          placeholder="Nueva tarea..."
+          maxlength="500"
+        />
+        <button onclick="add()">Añadir</button>
+      </div>
+      <div class="row meta">
+        <input
+          id="new-assignee"
+          type="text"
+          placeholder="¿Quién? (opcional)"
+          maxlength="100"
+        />
+        <input id="new-due" type="date" title="Fecha límite (opcional)" />
+        <select id="new-priority" title="Prioridad">
+          <option value="normal">Prioridad normal</option>
+          <option value="high">Prioridad alta</option>
+          <option value="low">Prioridad baja</option>
+        </select>
+      </div>
     </div>
     <div class="toolbar">
       <div class="filters">
@@ -219,7 +383,20 @@
         <button id="f-done" class="secondary" onclick="setFilter('done')">
           Hechas
         </button>
+        <button
+          id="f-mine"
+          class="secondary"
+          style="display: none"
+          onclick="toggleMine()"
+        >
+          Mías
+        </button>
       </div>
+      <select
+        id="assignee-filter"
+        onchange="setAssigneeFilter(this.value)"
+        title="Filtrar por persona"
+      ></select>
       <input
         id="search"
         type="text"
@@ -246,10 +423,50 @@
       let allTasks = [];
       let filter = "all";
       let query = "";
+      let assigneeFilter = "all";
+      let mineOnly = false;
+      let profile = "";
       let editingId = null;
-      let editDraft = "";
+      let editDraft = null;
       let lastDeleted = [];
       let undoTimer = null;
+      let lastRevision = 0;
+      let pendingRemote = false;
+
+      const PRI_LABEL = {
+        high: "🔴 alta",
+        normal: "🟡 normal",
+        low: "🟢 baja",
+      };
+      const PRI_RANK = { high: 0, normal: 1, low: 2 };
+
+      function todayStr() {
+        const d = new Date();
+        return (
+          d.getFullYear() +
+          "-" +
+          String(d.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(d.getDate()).padStart(2, "0")
+        );
+      }
+
+      function isOverdue(t) {
+        return !t.done && t.due_date && t.due_date < todayStr();
+      }
+
+      function compareTasks(a, b) {
+        const ao = isOverdue(a) ? 0 : 1;
+        const bo = isOverdue(b) ? 0 : 1;
+        if (ao !== bo) return ao - bo;
+        if (a.due_date && b.due_date && a.due_date !== b.due_date) {
+          return a.due_date < b.due_date ? -1 : 1;
+        }
+        if (!!a.due_date !== !!b.due_date) return a.due_date ? -1 : 1;
+        const pr = (PRI_RANK[a.priority] ?? 1) - (PRI_RANK[b.priority] ?? 1);
+        if (pr !== 0) return pr;
+        return a.id - b.id;
+      }
 
       function showError(msg) {
         const el = document.getElementById("error");
@@ -263,6 +480,52 @@
         el.style.display = "none";
       }
 
+      // ---- Profile (localStorage, no backend needed) ----
+      function loadProfile() {
+        try {
+          profile = (localStorage.getItem("todo.profile") || "").trim();
+        } catch {
+          profile = "";
+        }
+        refreshProfileUI();
+      }
+
+      function setProfile(name, prefill = true) {
+        profile = (name || "").trim().slice(0, 100);
+        try {
+          if (profile) localStorage.setItem("todo.profile", profile);
+          else localStorage.removeItem("todo.profile");
+        } catch {
+          /* private mode: profile lasts for this tab */
+        }
+        if (!profile) mineOnly = false;
+        if (
+          prefill &&
+          profile &&
+          !document.getElementById("new-assignee").value.trim()
+        ) {
+          document.getElementById("new-assignee").value = profile;
+        }
+        refreshProfileUI();
+        render();
+      }
+
+      function clearProfile() {
+        document.getElementById("profile").value = "";
+        setProfile("", false);
+      }
+
+      function refreshProfileUI() {
+        document.getElementById("profile").value = profile;
+        document.getElementById("profile-clear").style.display = profile
+          ? ""
+          : "none";
+        const mine = document.getElementById("f-mine");
+        mine.style.display = profile ? "" : "none";
+        mine.classList.toggle("active", mineOnly && !!profile);
+      }
+
+      // ---- Filters ----
       function setFilter(f) {
         filter = f;
         for (const name of ["all", "active", "done"]) {
@@ -273,20 +536,78 @@
         render();
       }
 
+      function toggleMine() {
+        if (!profile) return;
+        mineOnly = !mineOnly;
+        document.getElementById("f-mine").classList.toggle("active", mineOnly);
+        render();
+      }
+
       function setQuery(q) {
         query = q.trim().toLowerCase();
         render();
       }
 
+      function setAssigneeFilter(v) {
+        assigneeFilter = v;
+        render();
+      }
+
       function visibleTasks() {
-        return allTasks.filter((t) => {
-          if (filter === "active" && t.done) return false;
-          if (filter === "done" && !t.done) return false;
-          if (query && !t.text.toLowerCase().includes(query)) return false;
-          return true;
+        return allTasks
+          .filter((t) => {
+            if (filter === "active" && t.done) return false;
+            if (filter === "done" && !t.done) return false;
+            if (mineOnly && profile && t.assignee !== profile) return false;
+            if (
+              assigneeFilter !== "all" &&
+              (t.assignee || "") !== assigneeFilter
+            )
+              return false;
+            if (
+              query &&
+              !(
+                t.text.toLowerCase().includes(query) ||
+                (t.assignee || "").toLowerCase().includes(query)
+              )
+            )
+              return false;
+            return true;
+          })
+          .sort(compareTasks);
+      }
+
+      function refreshAssigneeOptions() {
+        const sel = document.getElementById("assignee-filter");
+        const names = [
+          ...new Set(allTasks.map((t) => t.assignee).filter(Boolean)),
+        ].sort();
+        const prev = assigneeFilter;
+        sel.innerHTML = "";
+        const all = document.createElement("option");
+        all.value = "all";
+        all.textContent = "Todas las personas";
+        sel.appendChild(all);
+        names.forEach((n) => {
+          const o = document.createElement("option");
+          o.value = n;
+          o.textContent = "👤 " + n;
+          sel.appendChild(o);
+        });
+        assigneeFilter = names.includes(prev) ? prev : "all";
+        sel.value = assigneeFilter;
+        sel.style.display = names.length === 0 ? "none" : "";
+
+        const dl = document.getElementById("profile-names");
+        dl.innerHTML = "";
+        names.forEach((n) => {
+          const o = document.createElement("option");
+          o.value = n;
+          dl.appendChild(o);
         });
       }
 
+      // ---- Data ----
       async function load() {
         try {
           clearError();
@@ -296,7 +617,10 @@
             throw new Error(
               "No se pudieron cargar las tareas (HTTP " + res.status + ")",
             );
+          const rev = Number(res.headers.get("X-Revision"));
+          if (Number.isSafeInteger(rev)) lastRevision = rev;
           allTasks = await res.json();
+          refreshAssigneeOptions();
           render();
         } catch (err) {
           showError(err.message);
@@ -305,15 +629,77 @@
         }
       }
 
+      // ---- Realtime: SSE pushes a revision on every mutation; any newer
+      // revision reloads, unless the user is editing (deferred to save/cancel).
+      function connectLive() {
+        const dot = document.getElementById("sync");
+        let es;
+        try {
+          es = new EventSource("/events");
+        } catch {
+          dot.textContent = "🔴";
+          dot.title = "Sin sincronización en vivo";
+          return;
+        }
+        es.onopen = () => {
+          dot.textContent = "🟢";
+          dot.title = "Sincronización en vivo";
+        };
+        es.onerror = () => {
+          dot.textContent = "🔴";
+          dot.title = "Sincronización interrumpida, reintentando…";
+        };
+        es.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (
+              typeof data.revision === "number" &&
+              data.revision > lastRevision
+            ) {
+              if (editingId !== null) pendingRemote = true;
+              else load();
+            }
+          } catch {
+            /* ignore malformed events */
+          }
+        };
+      }
+
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) load();
+      });
+
+      // ---- Rendering ----
+      function dueChip(t) {
+        if (!t.due_date) return null;
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        const today = todayStr();
+        if (!t.done && t.due_date < today) {
+          chip.classList.add("due-overdue");
+          chip.textContent = "⚠️ " + t.due_date;
+        } else if (t.due_date === today) {
+          chip.classList.add("due-today");
+          chip.textContent = "📅 hoy";
+        } else {
+          chip.textContent = "📅 " + t.due_date;
+        }
+        return chip;
+      }
+
       function render() {
         const list = document.getElementById("list");
         list.innerHTML = "";
         const tasks = visibleTasks();
         const pending = allTasks.filter((t) => !t.done).length;
-        document.getElementById("counter").textContent =
+        const overdue = allTasks.filter(isOverdue).length;
+        let counter =
           allTasks.length === 0
             ? ""
             : pending + " pendiente(s) de " + allTasks.length;
+        if (overdue > 0) counter += " · ⚠️ " + overdue + " vencida(s)";
+        if (mineOnly && profile) counter += " · 👤 " + profile;
+        document.getElementById("counter").textContent = counter;
 
         const empty = document.getElementById("empty");
         if (allTasks.length === 0) {
@@ -334,27 +720,55 @@
 
         tasks.forEach((t) => {
           const li = document.createElement("li");
+          li.classList.add("pri-" + (t.priority || "normal"));
           if (t.done) li.classList.add("done");
 
           if (editingId === t.id) {
             li.classList.add("editing");
-            const input = document.createElement("input");
-            input.type = "text";
-            input.value = editDraft;
-            input.maxLength = 500;
-            input.onclick = (e) => e.stopPropagation();
-            input.onkeydown = (e) => {
-              if (e.key === "Enter") saveEdit(t.id);
-              if (e.key === "Escape") cancelEdit();
-            };
+            li.onclick = null;
+            const textInput = document.createElement("input");
+            textInput.type = "text";
+            textInput.value = editDraft.text;
+            textInput.maxLength = 500;
+            textInput.onclick = (e) => e.stopPropagation();
+            const grid = document.createElement("div");
+            grid.className = "edit-grid";
+            const aInput = document.createElement("input");
+            aInput.type = "text";
+            aInput.placeholder = "¿Quién?";
+            aInput.maxLength = 100;
+            aInput.value = editDraft.assignee || "";
+            aInput.onclick = (e) => e.stopPropagation();
+            const dInput = document.createElement("input");
+            dInput.type = "date";
+            dInput.value = editDraft.due_date || "";
+            dInput.onclick = (e) => e.stopPropagation();
+            const pSelect = document.createElement("select");
+            for (const p of ["high", "normal", "low"]) {
+              const o = document.createElement("option");
+              o.value = p;
+              o.textContent = PRI_LABEL[p];
+              if (p === editDraft.priority) o.selected = true;
+              pSelect.appendChild(o);
+            }
+            pSelect.onclick = (e) => e.stopPropagation();
+            grid.appendChild(aInput);
+            grid.appendChild(dInput);
+            grid.appendChild(pSelect);
             const actions = document.createElement("div");
             actions.className = "actions";
+            actions.style.alignSelf = "flex-end";
             const save = document.createElement("button");
-            save.textContent = "💾";
-            save.title = "Guardar";
+            save.textContent = "💾 Guardar";
             save.onclick = (e) => {
               e.stopPropagation();
-              saveEdit(t.id);
+              saveEdit(
+                t.id,
+                textInput.value,
+                aInput.value,
+                dInput.value,
+                pSelect.value,
+              );
             };
             const cancel = document.createElement("button");
             cancel.textContent = "↩️";
@@ -366,17 +780,37 @@
             };
             actions.appendChild(save);
             actions.appendChild(cancel);
-            li.appendChild(input);
+            li.appendChild(textInput);
+            li.appendChild(grid);
             li.appendChild(actions);
             list.appendChild(li);
-            input.focus();
-            input.setSelectionRange(input.value.length, input.value.length);
+            textInput.focus();
             return;
           }
 
+          const content = document.createElement("div");
+          content.className = "content";
           const label = document.createElement("span");
           label.className = "label";
           label.textContent = t.text;
+          content.appendChild(label);
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          if (t.assignee) {
+            const c = document.createElement("span");
+            c.className =
+              "chip" + (profile && t.assignee === profile ? " me" : "");
+            c.textContent = "👤 " + t.assignee;
+            meta.appendChild(c);
+          }
+          const dc = dueChip(t);
+          if (dc) meta.appendChild(dc);
+          const pc = document.createElement("span");
+          pc.className = "chip";
+          pc.textContent = PRI_LABEL[t.priority] || PRI_LABEL.normal;
+          meta.appendChild(pc);
+          if (meta.childNodes.length > 0) content.appendChild(meta);
+
           li.onclick = () => toggle(t.id);
           const actions = document.createElement("div");
           actions.className = "actions";
@@ -398,22 +832,35 @@
           };
           actions.appendChild(editBtn);
           actions.appendChild(delBtn);
-          li.appendChild(label);
+          li.appendChild(content);
           li.appendChild(actions);
           list.appendChild(li);
         });
       }
 
+      // ---- Mutations ----
+      function collectNew() {
+        const text = document.getElementById("task").value.trim();
+        const assignee =
+          document.getElementById("new-assignee").value.trim() || profile;
+        const dueDate = document.getElementById("new-due").value;
+        const priority = document.getElementById("new-priority").value;
+        const body = { text };
+        if (assignee) body.assignee = assignee;
+        if (dueDate) body.due_date = dueDate;
+        if (priority && priority !== "normal") body.priority = priority;
+        return body;
+      }
+
       async function add() {
         try {
-          const taskInput = document.getElementById("task");
-          const text = taskInput.value.trim();
-          if (!text) return;
+          const body = collectNew();
+          if (!body.text) return;
           clearError();
           const res = await fetch("/tasks", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text }),
+            body: JSON.stringify(body),
           });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
@@ -422,7 +869,10 @@
                 "No se pudo añadir la tarea (HTTP " + res.status + ")",
             );
           }
-          taskInput.value = "";
+          document.getElementById("task").value = "";
+          document.getElementById("new-assignee").value = profile;
+          document.getElementById("new-due").value = "";
+          document.getElementById("new-priority").value = "normal";
           load();
         } catch (err) {
           showError(err.message);
@@ -431,25 +881,39 @@
 
       function startEdit(t) {
         editingId = t.id;
-        editDraft = t.text;
+        editDraft = {
+          text: t.text,
+          assignee: t.assignee || "",
+          due_date: t.due_date || "",
+          priority: t.priority || "normal",
+        };
         render();
       }
 
       function cancelEdit() {
         editingId = null;
-        render();
+        editDraft = null;
+        if (pendingRemote) {
+          pendingRemote = false;
+          load();
+        } else {
+          render();
+        }
       }
 
-      async function saveEdit(id) {
+      async function saveEdit(id, text, assignee, dueDate, priority) {
         try {
-          const input = document.querySelector("li.editing input");
-          const text = (input ? input.value : editDraft).trim();
+          text = text.trim();
           if (!text) return;
           clearError();
+          const body = { text };
+          body.assignee = assignee.trim() || null;
+          body.due_date = dueDate || null;
+          body.priority = priority;
           const res = await fetch("/tasks/" + id, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text }),
+            body: JSON.stringify(body),
           });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
@@ -459,9 +923,15 @@
             );
           }
           editingId = null;
+          editDraft = null;
           load();
         } catch (err) {
           showError(err.message);
+        } finally {
+          if (pendingRemote) {
+            pendingRemote = false;
+            load();
+          }
         }
       }
 
@@ -473,7 +943,10 @@
             throw new Error(
               "No se pudo actualizar la tarea (HTTP " + res.status + ")",
             );
-          load();
+          const updated = await res.json();
+          const i = allTasks.findIndex((t) => t.id === id);
+          if (i >= 0) allTasks[i] = updated;
+          render();
         } catch (err) {
           showError(err.message);
         }
@@ -488,8 +961,9 @@
             throw new Error(
               "No se pudo borrar la tarea (HTTP " + res.status + ")",
             );
+          allTasks = allTasks.filter((t) => t.id !== id);
           if (task) offerUndo([task]);
-          load();
+          render();
         } catch (err) {
           showError(err.message);
         }
@@ -509,8 +983,9 @@
                   ")",
               );
           }
+          allTasks = allTasks.filter((t) => !t.done);
           offerUndo(done);
-          load();
+          render();
         } catch (err) {
           showError(err.message);
         }
@@ -539,10 +1014,15 @@
         try {
           clearError();
           for (const t of toRestore) {
+            const body = { text: t.text };
+            if (t.assignee) body.assignee = t.assignee;
+            if (t.due_date) body.due_date = t.due_date;
+            if (t.priority && t.priority !== "normal")
+              body.priority = t.priority;
             const res = await fetch("/tasks", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: t.text }),
+              body: JSON.stringify(body),
             });
             if (!res.ok)
               throw new Error("No se pudo deshacer (HTTP " + res.status + ")");
@@ -559,7 +1039,13 @@
         if (e.key === "Enter") add();
       });
 
+      document.getElementById("profile").addEventListener("change", (e) => {
+        setProfile(e.target.value);
+      });
+
+      loadProfile();
       load();
+      connectLive();
     </script>
   </body>
 </html>

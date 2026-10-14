@@ -7,6 +7,6 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
-    volumes:
-      - ./db.sqlite:/app/db.sqlite
+      - DATABASE_URL=${DATABASE_URL:?Define DATABASE_URL in .env or environment}
+      - DATABASE_URL_FALLBACK=${DATABASE_URL_FALLBACK:-}
     restart: unless-stopped

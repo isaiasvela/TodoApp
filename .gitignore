@@ -1,6 +1,11 @@
 node_modules/
 db.sqlite
 *.sqlite
+*.sqlite-shm
+*.sqlite-wal
 *.db
+*.db-shm
+*.db-wal
 coverage/
 MEMORY.md
+.env
